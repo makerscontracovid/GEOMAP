@@ -52,7 +52,12 @@ function padroniza_telefone(tel){
 		mk.addListener('click', function() {
 			infowindow.open(mapa, mk);
 		});
+		return mk
+
 	}
+	function isString(x) {
+		return Object.prototype.toString.call(x) === "[object String]"
+	  }
 
 
 $(function () {
@@ -67,11 +72,11 @@ $(function () {
 	}
 
 	window.loading = loading
-	loading()
+	//loading()
 
 	// ------------------- Configurações iniciais do mapa -------------------
 
-	var center =	{lat: -22.813248051530852, lng: -43.35260605293031}	
+	var center =	{lat: -23.5505762, lng: -46.6932249}	
 
 	map = new google.maps.Map(document.getElementById('mapa'), {
 		mapTypeControl:false,
@@ -79,138 +84,105 @@ $(function () {
 		zoom:11
 		//mapTypeId: 'satellite'
 	});
+	var coordenada = {
+		lat: -23.5744016,
+		lng: -46.6500734
+	}
 	
-	// ------------------- Plota KML das regiões no mapa --------------------
-	var kmlPath = 'https://seusiteaqui.xyz/kmz/nodedokml.kmz' + '?ts='+(new Date().getTime())
-		kmlLayer = new google.maps.KmlLayer(kmlPath, {
-		preserveViewport: true,
-		map: map
-	})
+	window.map = map
+
+	//var m1 = marcador(coordenada,'MARCADOR1',false, map)
+	var m2 = marcador(center,'Casa de Makers','/img/maker.png', map)
+
+	//window.m1 = m1
+	window.m2 = m2
+
+	service = new google.maps.places.PlacesService(map);
+	function getPlace(query){
+		var request = {
+			query: query,
+			fields: ['place_id','geometry']
+		}
+		return new Promise(function(resolve, reject){
+			service.textSearch(request, (results, status)=> {
+				if (status == google.maps.places.PlacesServiceStatus.OK) {
+					var coords = results[0].geometry.location.lat()+ ',' + results[0].geometry.location.lng()
+					setTimeout(resolve,500,coords);
+				}else{
+					//alert(status)
+					var coords = false
+					setTimeout(resolve,500,coords);
+				}
+			}	);
+				
+		})
+	}
+	
+	window.getPlace = getPlace;
+	
+	
+
+	
+	// // ------------------- Plota KML das regiões no mapa --------------------
+	// var kmlPath = 'https://seusiteaqui.xyz/kmz/nodedokml.kmz' + '?ts='+(new Date().getTime())
+	// 	kmlLayer = new google.maps.KmlLayer(kmlPath, {
+	// 	preserveViewport: true,
+	// 	map: map
+	// })
 
 	//Download simultâneo das informações de hospitais, makers, coletas e entregas
-	Promise.all([$.get('/hospitais'), $.get('/pedidos'), $.get('/makers'), entregas(), coletas()])
-	.then(function(result){
-		var hospitais, pedidos, makers, entregas, coletas
-		[hospitais, pedidos, makers, entregas, coletas] = result
+	Promise.all([$.get('/hospitais'), $.get('/pedidos')])
+	.then(async function(result){
+		var hospitais, pedidos
+		[hospitais, pedidos] = result
 		
-	
-		var tmp = []
 
-		var covid = false
-		
+
+
 		var len= pedidos.length
+		console.log(len)
 
 		for(var i = 0; i<len;i++){
-			var pedido = pedidos[i]
+			console.log(pedidos[i][0])
+			var a = await getPlace(pedidos[i][0])
+			console.log(a)
 
-			
-
-			if(pedido[6] == "HOSPITAIS DE REFERÊNCIA PARA TRATAMENTO DA COVID-19"){
-				covid = true;
+			if(!a){
+				console.log('Georreferenciamento não encontrado para ', pedidos[i][0])
 				continue;
 			}
 
-			if(pedido[6] == "UNIDADES DE SAÚDE"){
-				covid = false;
-				continue;
-			}
-
-			if(!(/[:]/.test(pedido[1]))) continue
-
-			var hospital =	pedido[3]
-
-			if(!hospitais[hospital]){
-				console.log('Georreferenciamento não encontrado para ', hospital)
-				continue;
-			}
-
-			hospital = hospitais[hospital]
-			
-			if(!hospital.qtd) hospital.qtd = 0//desconta as máscaras que já foram entregues
-			
-			hospital.nome =		pedido[3]
-			hospital.tipo =		pedido[4]
-			hospital.privado =	(hospital.tipo == "Privado")
-			hospital.qtd +=		(parseInt(pedido[7].match(/[0-9]+/))||0) //filtra os caracteres, deixando apenas os números
-			hospital.covid= covid
-
-			var entregues = entregas.filter(function(entrega){
-				if(entrega[4]=="Entregue")
-				var nome = entrega[5]
-				return nome == hospital.nome
-			})
-
-			hospital.entregues = entregues.reduce(function(acc,val){
-				return acc+parseInt(val[3])
-			},0)
-
-			tmp.push(hospital)
-		}
-		var pedidos = tmp
-			
-		var len = makers.length
-		for(var i=0; i<len; i++){
-			var maker = makers[i]
-
-			var qtd	=		(maker[5]=='')?0:maker[5]
-
-			if(!maker[14]||maker[14]=='') continue
-			
-			var coords = maker[14].split(',')
-			coords = {
-				lat: parseFloat(coords[0]),
-				lng: parseFloat(coords[1])
+			var coords= a.split(',').map(parseFloat)
+			var hosp_coord = {
+				lat: coords[0],
+				lng: coords[1]
 			}
 
 			var info =	'<div id="content">'+
 			'<div id="siteNotice">'+
 			'</div>'+
-			'<h1 id="firstHeading" class="firstHeading">Impressora Voluntária '+(i+1)+'</h1>'+
+			'<h1 id="bodyContent">'+pedidos[i][0]+'</h1>'+
 			'<div id="bodyContent">'+
-			'<p><b>Máscaras Disponíveis para Retirada:</b> '+qtd+'</p>'+
+			'<p><b>Pedido:</b> '+pedidos[i][3]+'</p>'+
 			'</div>'+
 			'</div>';
 
-			marcador(coords, info, '/img/maker.png', map)	
+			var imgMarcador	= '/img/red.png'
+			if(pedidos[i][7] == 'público'){
+				imgMarcador = '/img/gray.png'
+			}
+			if(pedidos[i][7] == 'Privado'){
+				imgMarcador = '/img/blue.png'
+			}
+
+			if((isString(pedidos[i][9])) && (pedidos[i][9].includes('entregue'))){
+				imgMarcador = '/img/hospital-ok.png'
+			}
+
+			marcador(hosp_coord,info,imgMarcador, map)		
+
 		}
 
-		//plota as informações dos hospitais no mapa
-		Object.values(hospitais).forEach(function(hospital){
 
-			if(!hospital.nome) return
-
-			hospital.qtd -= hospital.entregues //Baixa nas máscaras entregues
-
-			var info =	'<div id="content">'+
-						'<div id="siteNotice">'+
-						'</div>'+
-						'<h1 id="firstHeading" class="firstHeading">'+ hospital.nome +'</h1>'+
-						'<div id="bodyContent">'+
-						((hospital.covid)?'<p class="red">Referência para tratamento do COVID-19</p>':'')+
-						'<p><b>Necessidade de Máscaras:</b> '+((hospital.qtd<1)?'<span class="green">atendido</span>':hospital.qtd)+'</p>'+
-						((hospital.entregues)?('<p><b>Máscaras entregues:</b> '+hospital.entregues+'</p>'):'')+
-						'<p><b>Tipo de Hospital:</b> '+hospital.tipo+'</p>'+
-						'</div>'+
-						'</div>';
-
-			var icon
-			if(hospital.privado){
-				if(hospital.covid){
-					icon = '/img/bioh-yellow.png'
-				}else{
-					icon = '/img/yellow.png'
-				}
-			}else{
-				if(hospital.covid){
-					icon = '/img/bioh.png'
-				}else{
-					icon = false
-				}
-			}
-			marcador(hospital.coords, info, icon, map)
-
-		})
-		
-		loading(false)
 	})
 });

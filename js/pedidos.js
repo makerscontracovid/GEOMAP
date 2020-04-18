@@ -1,33 +1,29 @@
 var getSheets = require('./sheets.js').get
 
-var planilha_hospitais = '1hF7aR-Z10qDjGFupMIzpsl0s4UK2fS6AlhSoby87z9I'
-var I = '!A:H'
+var planilha_hospitais = '1mnQ6EG6nTnmc-vEQAotJhgTuHRDXGQ0Y_hWv7acsXYs'
+var tabela = '1wNKK9WG4lcjW1-GBoOTPjtS1zPvglB6Zd21OWFK_cMM'
 
-var planilhas = [
-	'ZONA NORTE',
-	'ZONA SUL',
-	'ZONA OESTE',
-	'CENTRO',
-	'BAIXADA FLUMINENSE',
-	'REGIÃO METROPOLITANA',
-	'REGIÃO SERRANA',
-	'REGIÃO DOS LAGOS',
-	'REGIÃO MÉDIO PARAÍBA'/*,
-	'REGIÃO CENTRO SUL',
-	'REGIÃO NOROESTEL',
-	'REGIÃO NORTE',
-	'REGIÃO OUTROS ESTADOS'*/
-]
+var I = '!D2:G'
+
+// var planilhas = [
+// 	'SP/REGIAO METROPOLITANA'
+// ]
 
 module.exports = async (req, res)=>{
+
+	// var respostas = await getSheets(tabela,"'SP/REGIAO METROPOLITANA'!D2:G")
+	// res.send(respostas)
+
+	var respostas = await getSheets(planilha_hospitais,"'SP/REGIAO METROPOLITANA'!D2:M")
+	res.send(respostas)
 	
-	var chain = planilhas.map(function(planilha){
-		return getSheets(planilha_hospitais,planilha+I)
-	})
+	// var chain = planilhas.map(function(planilha){
+	// 	return getSheets(planilha_hospitais,planilha+I)
+	// })
 
-	var results = await Promise.all(chain)
+	// var results = await Promise.all(chain)
 
-	results = results.reduce((acc, val) => acc.concat(val), []);
+	// results = results.reduce((acc, val) => acc.concat(val), []);
 
-	res.send(results);
+	// res.send(results);
 }
